@@ -21,7 +21,7 @@ controls.movementSpeed = 100;
 // controls.dispose();
 // Cargar la textura de la estrella
 const loader = new THREE.TextureLoader();
-const starTexture = loader.load('/images/star.png');
+const starTexture = loader.load('images/star.png'); // Ruta corregida según lo mencionado
 
 // Crear el plano de la malla (suelo)
 const createGrid = () => {
