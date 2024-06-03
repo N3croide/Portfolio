@@ -1,0 +1,12 @@
+body{
+    margin-bottom: 0px;
+    margin-left: 0px;
+    margin-right: 0px;
+    margin-top: 0px;
+}
+
+/* Asegurarse de que el contenedor del universo ocupe toda la ventana */
+#universe {
+    width: 100vw;
+    height: 100vh;
+}
