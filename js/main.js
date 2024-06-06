@@ -1,22 +1,53 @@
 import * as THREE from 'three';
 import { FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
+import { FlakesTexture } from 'three/addons/textures/FlakesTexture.js';
+import { EffectComposer, RenderPass } from 'postprocessing';
+import { KernelSize as KernelSize2, Pass as Pass4 } from "postprocessing";
+import { GodraysPass } from 'three-good-godrays';
+
 
 
 // Crear la escena
 const scene = new THREE.Scene();
+
 scene.background = new THREE.Color(0x000000);
 
 // Crear la cámara
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-// Crear el renderizador
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+// Crear Render
 const renderer = new THREE.WebGLRenderer();
+
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = true;
+
+
+scene.traverse(obj => {
+if (obj instanceof THREE.Mesh) {
+    obj.castShadow = true;
+    obj.receiveShadow = true;
+}
+});
+
+
+  
+
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('universe').appendChild(renderer.domElement);
+const clock = new THREE.Clock();
 
-// Crear controles de órbita para la cámara
+
+
+// Crear controles de para la cámara
 const controls = new FirstPersonControls(camera, renderer.domElement);
-controls.lookSpeed = 0.1;
-// controls.dispose();
+controls.lookSpeed = 0.08;
+controls.lookVertical = true;
+controls.constrainVertical = true;
+controls.verticalMin = 0;
+controls.verticalMax = Math.PI;
+
+
+
 // Cargar la textura de la estrella
 const loader = new THREE.TextureLoader();
 const starTexture = loader.load('images/star.png'); // Ruta corregida según lo mencionado
@@ -25,8 +56,7 @@ const starTexture = loader.load('images/star.png'); // Ruta corregida según lo 
 const createGridMesh = () => {
     const size = 2000;
     const divisions =100;
-    const gridMaterial = new THREE.LineBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.5 });
-
+    const gridMaterial = new THREE.LineBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.6 });
     const gridGeometry = new THREE.BufferGeometry();
     const points = [];
 
@@ -38,10 +68,8 @@ const createGridMesh = () => {
     gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
 
     const gridMesh = new THREE.LineSegments(gridGeometry, gridMaterial);
-    gridMesh.renderOrder = 1; // Establecer orden de renderizado
     scene.add(gridMesh);
 };
-createGridMesh();
 
 
 // Añadir estrellas (puntos)
@@ -52,14 +80,14 @@ const addStars = () => {
         color: 0xffffff, 
         size: 0.7, 
         map: starTexture, 
-        transparent: true, 
+        transparent: false, 
         blending: THREE.AdditiveBlending,
-        depthWrite: false  // No escribir en el buffer de profundidad
+        depthWrite: false
     });
 
     starVertices = [];
-    const spread = 1500;  // Rango de dispersión de las estrellas
-    for (let i = 0; i <100000; i++) {
+    const spread = 1600;  // Rango de dispersión de las estrellas
+    for (let i = 0; i <20000; i++) {
         const x = THREE.MathUtils.randInt(-spread, spread);
         const y = THREE.MathUtils.randInt(-spread, spread);
         const z = THREE.MathUtils.randInt(-spread, spread);
@@ -69,11 +97,8 @@ const addStars = () => {
     starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
 
     const stars = new THREE.Points(starGeometry, starMaterial);
-    scene.add(stars);
+    return stars;
 };
-
-addStars();
-
 
 let isLeftMouseDown = false;
 let isRightMouseDown = false;
@@ -95,6 +120,110 @@ document.addEventListener('mouseup', (event) => {
     }
 });
 
+//Generar sol
+
+const sunGeo = new THREE.SphereGeometry(20,100,100);
+const sunMa = new THREE.MeshBasicMaterial({
+    color : 0x0000FF
+});
+const sun = new THREE.Mesh(sunGeo, sunMa);
+
+
+//Generar planetas
+function generatePlanet(size, texture, position){
+
+    const geometry = new THREE.SphereGeometry(size,50,50);
+    const maretial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF
+    });
+
+    const mesh = new THREE.Mesh(geometry, maretial);
+    const obj = new THREE.Object3D();
+    obj.add(mesh);
+    scene.add(obj);
+    mesh.position.x = position;
+    return {mesh, obj}
+};
+
+
+//Crear planeteas
+const marte = generatePlanet(40, null, 300);
+
+
+//Generar luces
+const pointLight = new THREE.PointLight(0xFFFFFF, 100, 100);
+pointLight.castShadow = true;
+// pointLight.shadow.mapSize.width = 1024;
+// pointLight.shadow.mapSize.height = 1024;
+pointLight.shadow.autoUpdate = true;
+pointLight.shadow.camera.near = 0.1;
+pointLight.shadow.camera.far = 1000;
+pointLight.shadow.camera.updateProjectionMatrix();
+const lightHelper = new THREE.PointLightHelper(pointLight);
+// pointLight.position.copy(lightPos);
+scene.add(pointLight);
+
+
+const params = {
+    density: 1 / 128,
+    maxDensity: 0.5,
+    edgeStrength: 2,
+    edgeRadius: 5,
+    distanceAttenuation: 2,
+    color: new THREE.Color(0xffffff),
+    raymarchSteps: 60,
+    blur: true,
+    gammaCorrection: true,
+};
+
+const godraysPass = new GodraysPass(pointLight, camera, params);
+
+let texture = new THREE.CanvasTexture(new FlakesTexture());
+texture.wrapS = THREE.RepeatWrapping;
+texture.wrapT = THREE.RepeatWrapping;
+texture.repeat.x = 0;
+texture.repeat.y = 0;
+
+const ballMaterial = {
+    clearcoat: 1.0,
+    clearcoatRoughness:0,
+    opacity: 0,
+    transmission: 1,
+    reflectivity: 1.0,
+    ior : 1,
+    color: 0xFFFFFF,
+    normalMap: texture,
+    normalScale: new THREE.Vector2(0.2,0.2)
+}
+
+
+// Crear un material de vidrio para el casco de astronauta
+const glassMaterial = new THREE.MeshPhysicalMaterial(ballMaterial);
+glassMaterial.side = THREE.BackSide;
+renderer.outputEncoding = THREE.sRGBEncoding;
+
+const helmetGeometry = new THREE.SphereGeometry(10, 50, 50,);
+const helmetMesh = new THREE.Mesh(helmetGeometry, glassMaterial);
+camera.add(helmetMesh);
+helmetMesh.position.set(10,50, 20);
+
+scene.add(lightHelper);
+sun.add(pointLight);
+sun.add(addStars())
+scene.add(pointLight);
+sun.position.x = 0;
+// scene.add(sun);
+// sun.add(camera);
+
+const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType });
+
+const renderPass = new RenderPass(scene, camera);
+renderPass.renderToScreen = false;
+composer.addPass(renderPass);
+
+godraysPass.renderToScreen = true;
+composer.addPass(godraysPass);
+
 const moveForward = () => {
     camera.position.add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(1));
 };
@@ -103,13 +232,42 @@ const moveBackward = () => {
 };
 
 
-// Animar la escena
+//Animate Sun
+function animateSun(time){
+    const positionAttribute = sun.geometry.attributes.position;
+    const vertex = new THREE.Vector3();
+
+    for (let i = 0; i < positionAttribute.count; i++) {
+        vertex.fromBufferAttribute(positionAttribute, i);
+
+        // Ajustar la coordenada z del vértice para inestabilidad acumulativa
+        vertex.z += Math.sin(vertex.x * 0.3 + time * 3) * 0.08; // Ajuste de frecuencia, velocidad y amplitud
+        vertex.z += Math.cos(vertex.y * 0.3 + time * 5) * 0.09; // Otra componente de inestabilidad
+
+        positionAttribute.setXYZ(i, vertex.x, vertex.y, vertex.z);
+    }
+
+    positionAttribute.needsUpdate = true;
+}
+
+createGridMesh();
+
+scene.add(helmetMesh);
+
+function attachHelment(time){
+
+    helmetMesh.position.copy(camera.position);
+    helmetMesh.rotation.copy(camera.rotation);
+    helmetMesh.updateMatrix();
+
+}
+
+
 const animate = () => {
     requestAnimationFrame(animate);
     
-    const limit = 500;
-    // Aplicar límites para la cámara
-    // const limit = 500;  // Tamaño del universo
+    const limit = 1300;
+    //Aplicar límites para la cámara
     camera.position.x = THREE.MathUtils.clamp(camera.position.x, -limit, limit);
     camera.position.y = THREE.MathUtils.clamp(camera.position.y, -limit, limit);
     camera.position.z = THREE.MathUtils.clamp(camera.position.z, -limit, limit);
@@ -127,12 +285,6 @@ const animate = () => {
         }
     });
 
-    // Aplicar efecto de hundimiento
-    if (camera.position.y < 1) {
-        camera.position.y -= 0.01;
-    }
-
-
     // Mover la cámara hacia adelante si el botón izquierdo del mouse está presionado
     if (isLeftMouseDown) {
         moveForward();
@@ -141,11 +293,17 @@ const animate = () => {
     if (isRightMouseDown) {
         moveBackward();
     }
-
-    // updateRotation();
-    controls.update(0.025);  // Actualizar los controles
-
-    renderer.render(scene, camera);
+    const time = clock.getElapsedTime();
+    animateSun(time);
+    // attachHelment(time);
+    // animateSun2(time);
+    controls.update(0.03);  // Actualizar los controles
+    helmetMesh.geometry.needsUpdate  = true;
+    sun.rotateY(0.0004);
+    marte.mesh.rotateY(0.04);
+    marte.obj.rotateY(0.02);
+    composer.render();
+    // renderer.render(scene, camera);
 };
 
 animate();

@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "postprocessing": "^6.35.5",
+    "three": "^0.160.0",
+    "three-good-godrays": "^0.6.1",
+    "three-stdlib": "^2.30.3",
+    "vite": "^5.2.12"
+  }
+}
