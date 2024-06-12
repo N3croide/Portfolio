@@ -1,6 +1,6 @@
 import * as THREE from './three';
 import { FirstPersonControls } from './three/addons/controls/FirstPersonControls.js';
-import { FlakesTexture } from 'three/addons/textures/FlakesTexture.js';
+import { FlakesTexture } from '/three/examples/jsm/textures/FlakesTexture.js';''
 import { EffectComposer, RenderPass } from './postprocessing';
 import { shininess, specularColor } from './three/examples/jsm/nodes/Nodes.js';
 import { CSS3DRenderer, CSS3DObject } from './three/addons/renderers/CSS3DRenderer.js';
