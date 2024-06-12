@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from '/three';
 import { FirstPersonControls } from './three/addons/controls/FirstPersonControls.js';
 import { FlakesTexture } from './three/examples/jsm/textures/FlakesTexture.js';''
 import { EffectComposer, RenderPass } from './postprocessing';
