@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
 import { FlakesTexture } from 'three/addons/textures/FlakesTexture.js';
 import { EffectComposer, RenderPass } from 'postprocessing';
-import { KernelSize as KernelSize2, Pass as Pass4 } from "postprocessing";
-import { GodraysPass } from 'three-good-godrays';
+import { shininess, specularColor } from 'three/examples/jsm/nodes/Nodes.js';
+import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 
 
 
@@ -16,10 +16,26 @@ scene.background = new THREE.Color(0x000000);
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
 // Crear Render
 const renderer = new THREE.WebGLRenderer();
-
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = true;
+
+// Render de pagina
+const pagRender = new CSS3DRenderer();
+pagRender.setSize(window.innerWidth,window.innerHeight);
+pagRender.domElement.style.position = 'absolute';
+pagRender.domElement.style.top = '0px';
+pagRender.domElement.style.pointerEvents = 'none';
+document.getElementById('universe').appendChild(pagRender.domElement);
+
+const div = document.createElement('div');
+div.textContent = 'HOA';
+// const p = document.createElement('p');
+// p.textContent = 'HOLA';
+// div.appendChild(p);
+div.style.backgroundColor = 'white';
+const div3DCSS = new CSS3DObject(div);
+scene.add(div3DCSS);
 
 
 scene.traverse(obj => {
@@ -29,8 +45,6 @@ if (obj instanceof THREE.Mesh) {
 }
 });
 
-
-  
 
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('universe').appendChild(renderer.domElement);
@@ -151,7 +165,7 @@ const marte = generatePlanet(40, null, 300);
 
 
 //Generar luces
-const pointLight = new THREE.PointLight(0xFFFFFF, 100, 100);
+const pointLight = new THREE.PointLight(0xFFFFFF, 100000, 0);
 pointLight.castShadow = true;
 // pointLight.shadow.mapSize.width = 1024;
 // pointLight.shadow.mapSize.height = 1024;
@@ -163,21 +177,6 @@ const lightHelper = new THREE.PointLightHelper(pointLight);
 // pointLight.position.copy(lightPos);
 scene.add(pointLight);
 
-
-const params = {
-    density: 1 / 128,
-    maxDensity: 0.5,
-    edgeStrength: 2,
-    edgeRadius: 5,
-    distanceAttenuation: 2,
-    color: new THREE.Color(0xffffff),
-    raymarchSteps: 60,
-    blur: true,
-    gammaCorrection: true,
-};
-
-const godraysPass = new GodraysPass(pointLight, camera, params);
-
 let texture = new THREE.CanvasTexture(new FlakesTexture());
 texture.wrapS = THREE.RepeatWrapping;
 texture.wrapT = THREE.RepeatWrapping;
@@ -187,42 +186,46 @@ texture.repeat.y = 0;
 const ballMaterial = {
     clearcoat: 1.0,
     clearcoatRoughness:0,
-    opacity: 0,
+    opacity: 0.4,
+    transparent: true, // Importante para que la opacidad funcione
     transmission: 1,
-    reflectivity: 1.0,
-    ior : 1,
-    color: 0xFFFFFF,
+    reflectivity: 2,
+    ior : 1.05,
     normalMap: texture,
-    normalScale: new THREE.Vector2(0.2,0.2)
+    normalScale: new THREE.Vector2(0.2,0.2),
+    side: THREE.DoubleSide,
+    specularColor: 0xFFFFFF,
+    specularIntensity : 1,
+    shininess: 60,
+    color:0x000000,
+    emissive:0x000000
 }
-
+//testeando luces
 
 // Crear un material de vidrio para el casco de astronauta
-const glassMaterial = new THREE.MeshPhysicalMaterial(ballMaterial);
-glassMaterial.side = THREE.BackSide;
+const glassMaterial = new THREE.MeshPhongMaterial(ballMaterial);
+glassMaterial.side = THREE.DoubleSide;
 renderer.outputEncoding = THREE.sRGBEncoding;
 
 const helmetGeometry = new THREE.SphereGeometry(10, 50, 50,);
+helmetGeometry.computeVertexNormals();
 const helmetMesh = new THREE.Mesh(helmetGeometry, glassMaterial);
 camera.add(helmetMesh);
-helmetMesh.position.set(10,50, 20);
+const helmetHlper = new THREE.AxesHelper();
+helmetHlper.setColors(0x00FF00,0xFF0000,0xFFFFFF);
+helmetMesh.add(helmetHlper);
+// helmetMesh.position.set(0, 0, 0);
 
 scene.add(lightHelper);
 sun.add(pointLight);
 sun.add(addStars())
+scene.add(addStars())
 scene.add(pointLight);
 sun.position.x = 0;
 // scene.add(sun);
 // sun.add(camera);
 
-const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType });
 
-const renderPass = new RenderPass(scene, camera);
-renderPass.renderToScreen = false;
-composer.addPass(renderPass);
-
-godraysPass.renderToScreen = true;
-composer.addPass(godraysPass);
 
 const moveForward = () => {
     camera.position.add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(1));
@@ -256,8 +259,12 @@ scene.add(helmetMesh);
 
 function attachHelment(time){
 
-    helmetMesh.position.copy(camera.position);
+    const vector = new THREE.Vector3();
+    camera.getWorldDirection(vector)
     helmetMesh.rotation.copy(camera.rotation);
+    helmetMesh.position.copy(camera.position)
+    // helmetMesh.position.z -= 20;
+    // console.log('camara: ', vector.multiplyScalar(100));
     helmetMesh.updateMatrix();
 
 }
@@ -295,15 +302,15 @@ const animate = () => {
     }
     const time = clock.getElapsedTime();
     animateSun(time);
-    // attachHelment(time);
+    attachHelment(time);
     // animateSun2(time);
     controls.update(0.03);  // Actualizar los controles
     helmetMesh.geometry.needsUpdate  = true;
     sun.rotateY(0.0004);
     marte.mesh.rotateY(0.04);
     marte.obj.rotateY(0.02);
-    composer.render();
-    // renderer.render(scene, camera);
+    pagRender.render(scene, camera)
+    renderer.render(scene, camera);
 };
 
 animate();
@@ -312,8 +319,9 @@ animate();
 window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
+    pagRender.setSize(window.innerWidth, window.innerHeight);
     camera.updateProjectionMatrix();
 });
 
 // Ajustar la posición inicial de la cámara
-camera.position.set(10, 50, 100);  // Posición inicial de la cámara
+// camera.position.set(10, 50, 100);  // Posición inicial de la cámara
